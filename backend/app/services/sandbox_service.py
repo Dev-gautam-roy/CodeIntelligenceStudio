@@ -21,6 +21,8 @@ COMMAND_ALLOWLIST = {
     "mvn",
     "gradle",
     "dotnet",
+    "flutter",
+    "dart",
 }
 
 

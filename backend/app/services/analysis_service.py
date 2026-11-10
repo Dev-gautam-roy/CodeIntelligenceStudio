@@ -7,6 +7,7 @@ from app.core.logging import logger
 
 LANGUAGE_EXTENSIONS = {
     ".py": "Python",
+    ".dart": "Dart",
     ".ts": "TypeScript",
     ".tsx": "TypeScript (React)",
     ".js": "JavaScript",
@@ -19,6 +20,8 @@ LANGUAGE_EXTENSIONS = {
     ".cs": "C#",
     ".rb": "Ruby",
     ".php": "PHP",
+    ".swift": "Swift",
+    ".kt": "Kotlin",
 }
 
 IGNORE_DIRS = {
@@ -32,6 +35,7 @@ IGNORE_DIRS = {
     ".next",
     "target",
     "vendor",
+    ".dart_tool",
 }
 
 
@@ -59,6 +63,23 @@ class AnalysisService:
     def detect_frameworks(cls, workspace_dir: Path) -> List[str]:
         """Detects frameworks by inspecting manifest files."""
         frameworks = set()
+
+        # Flutter & Dart
+        pubspec = workspace_dir / "pubspec.yaml"
+        if pubspec.exists():
+            frameworks.add("Dart")
+            try:
+                content = pubspec.read_text(encoding="utf-8", errors="ignore")
+                if "flutter:" in content or "flutter_test:" in content:
+                    frameworks.add("Flutter")
+                if "provider:" in content:
+                    frameworks.add("Provider (State)")
+                if "bloc:" in content or "flutter_bloc:" in content:
+                    frameworks.add("BLoC")
+                if "riverpod:" in content:
+                    frameworks.add("Riverpod")
+            except Exception:
+                pass
 
         # Node / JS
         pkg_json = workspace_dir / "package.json"
@@ -115,6 +136,8 @@ class AnalysisService:
     def find_entry_points(cls, workspace_dir: Path) -> List[str]:
         """Finds primary application entry points."""
         candidates = [
+            "lib/main.dart",
+            "main.dart",
             "main.py",
             "app.py",
             "server.py",
@@ -151,9 +174,25 @@ class AnalysisService:
         return list(set(imports))
 
     @classmethod
+    def parse_dart_imports(cls, file_path: Path) -> List[str]:
+        """Extracts imported packages/files from a Dart source file."""
+        imports = []
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="ignore")
+            matches = re.findall(r"import\s+['\"]([^'\"]+)['\"]", content)
+            for m in matches:
+                if m.startswith("package:"):
+                    pkg = m.replace("package:", "").split("/")[0]
+                    imports.append(pkg)
+                else:
+                    imports.append(Path(m).stem)
+        except Exception:
+            pass
+        return list(set(imports))
+
+    @classmethod
     def detect_circular_dependencies(cls, raw_graph: Dict[str, List[str]]) -> List[List[str]]:
         """Finds circular dependencies using Tarjan's Strongly Connected Components algorithm."""
-        # Normalize node keys and values to basenames without extensions
         normalized_graph: Dict[str, List[str]] = {}
         for src, targets in raw_graph.items():
             norm_src = Path(src).stem
@@ -214,9 +253,9 @@ class AnalysisService:
             for file in files:
                 ext = Path(file).suffix.lower()
                 rel_path = str(Path(root, file).relative_to(workspace_dir)).replace("\\", "/")
+                abs_path = Path(root) / file
 
                 if ext == ".py":
-                    abs_path = Path(root) / file
                     imports = cls.parse_python_imports(abs_path)
                     dep_graph[rel_path] = imports
 
@@ -226,6 +265,9 @@ class AnalysisService:
                             routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": rel_path})
                     except Exception:
                         pass
+                elif ext == ".dart":
+                    imports = cls.parse_dart_imports(abs_path)
+                    dep_graph[rel_path] = imports
 
         circular = cls.detect_circular_dependencies(dep_graph)
 

@@ -152,8 +152,15 @@ class TestingAgent(BaseAgent):
         start = time.time()
         ws = Path(context.workspace_path) if context.workspace_path else Path(".")
 
-        # Execute pytest if present
-        exec_res = SandboxService.execute_command("pytest -q", working_dir=ws, timeout_seconds=45)
+        # Detect project test runner automatically
+        if (ws / "pubspec.yaml").exists():
+            test_cmd = "flutter test"
+        elif (ws / "package.json").exists():
+            test_cmd = "npm test"
+        else:
+            test_cmd = "pytest -q"
+
+        exec_res = SandboxService.execute_command(test_cmd, working_dir=ws, timeout_seconds=45)
         passed = exec_res["exit_code"] == 0
 
         duration = int((time.time() - start) * 1000)
