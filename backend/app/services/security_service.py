@@ -8,8 +8,17 @@ SECRET_PATTERNS = [
     ("GITHUB_PAT", re.compile(r"gh[pousr]_[A-Za-z0-9_]{36,255}")),
     ("PRIVATE_KEY", re.compile(r"-----BEGIN (?:RSA|DSA|EC|OPENSSH|PRIVATE) KEY-----")),
     ("SLACK_TOKEN", re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
-    ("OPENAI_KEY", re.compile(r"sk-[a-zA-Z0-9]{48}")),
-    ("GENERIC_SECRET", re.compile(r'(?i)(?:api_key|apikey|secret|password|passwd|auth_token)\s*[:=]\s*["\']([a-zA-Z0-9_\-]{16,})["\']')),
+    ("OPENAI_KEY", re.compile(r"sk-[a-zA-Z0-9]{20,}")),
+    ("HARDCODED_SECRET", re.compile(r'(?i)(?:secret_key|secret|password|passwd|api_key|apikey|auth_token)\s*(?:[:=]|\[[\'"][^\'"]+[\'"]\]\s*=)\s*[\'"]([^\'"\s]{4,})[\'"]')),
+]
+
+VULNERABILITY_PATTERNS = [
+    ("WEAK_HASHING_ALGORITHM", re.compile(r"(?i)hashlib\.(?:md5|sha1)\("), "CRITICAL", "Insecure hashing algorithm (MD5/SHA1) detected. Use bcrypt, argon2, or sha256."),
+    ("INSECURE_DESERIALIZATION", re.compile(r"(?i)yaml\.load\([^,)]+\)"), "CRITICAL", "Unsafe yaml.load() detected (RCE vulnerability). Use yaml.safe_load()."),
+    ("INSECURE_JWT_VERIFICATION", re.compile(r"(?i)jwt\.decode\([^)]*verify\s*=\s*False"), "CRITICAL", "JWT decoded with signature verification disabled. Set verify=True."),
+    ("SERVER_SIDE_TEMPLATE_INJECTION", re.compile(r"(?i)render_template_string\("), "HIGH", "render_template_string() detected with dynamic input. Potential SSTI flaw."),
+    ("SQL_INJECTION_RISK", re.compile(r'(?i)(?:execute|raw)\s*\(\s*(?:f[\'"].*\{|[\'"].*(?:SELECT|INSERT|UPDATE|DELETE).*%\s*\(|[\'"].*\+\s*[a-zA-Z_])'), "CRITICAL", "Possible SQL injection with direct string concatenation. Use parameterized queries."),
+    ("COMMAND_INJECTION_RISK", re.compile(r"(?i)subprocess\.(?:call|Popen|run)\([^)]*shell\s*=\s*True"), "HIGH", "Subprocess executed with shell=True. High risk of command injection."),
 ]
 
 INJECTION_PATTERNS = [
@@ -36,11 +45,12 @@ def shannon_entropy(data: str) -> float:
 class SecurityService:
     @classmethod
     def scan_content_for_secrets(cls, file_path: str, content: str) -> List[SecurityFinding]:
-        """Scans code content for leaked credentials, private keys, and high-entropy secrets."""
+        """Scans code content for leaked credentials, private keys, vulnerabilities, and high-entropy secrets."""
         findings: List[SecurityFinding] = []
         lines = content.splitlines()
 
         for idx, line in enumerate(lines, start=1):
+            # Check secret patterns
             for sec_type, pattern in SECRET_PATTERNS:
                 match = pattern.search(line)
                 if match:
@@ -52,7 +62,23 @@ class SecurityService:
                             line_number=idx,
                             description=f"Potential {sec_type} detected.",
                             snippet=line[:80].strip(),
-                            recommendation="Remove the secret immediately, revoke the credential, and add to .gitignore.",
+                            recommendation="Remove the hardcoded secret immediately, revoke the credential, and use environment variables.",
+                        )
+                    )
+
+            # Check vulnerability patterns (OWASP Top 10)
+            for vuln_type, pattern, severity, rec in VULNERABILITY_PATTERNS:
+                match = pattern.search(line)
+                if match:
+                    findings.append(
+                        SecurityFinding(
+                            severity=severity,
+                            type=vuln_type,
+                            file_path=file_path,
+                            line_number=idx,
+                            description=f"Security flaw detected: {vuln_type}.",
+                            snippet=line[:80].strip(),
+                            recommendation=rec,
                         )
                     )
 
@@ -98,12 +124,10 @@ class SecurityService:
         contradictions = []
         security_concerns = []
 
-        # Token estimation (~4 chars per token)
         est_tokens = len(prompt_text) // 4
         if est_tokens > token_budget:
             contradictions.append(f"Prompt length ({est_tokens} tokens) exceeds allocated budget ({token_budget} tokens).")
 
-        # Check required architectural sections
         lower = prompt_text.lower()
         if "role" not in lower and "you are" not in lower:
             missing.append("Missing explicit Role definition.")
@@ -112,7 +136,6 @@ class SecurityService:
         if "output" not in lower and "format" not in lower:
             missing.append("Missing explicit Output Format or Completion Criteria.")
 
-        # Check safety directives
         if "approval" not in lower and ("write" in lower or "push" in lower or "deploy" in lower):
             security_concerns.append("Modifying actions detected without mandatory human approval gate directive.")
 

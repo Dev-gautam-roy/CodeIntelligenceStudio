@@ -61,74 +61,78 @@ class AnalysisService:
 
     @classmethod
     def detect_frameworks(cls, workspace_dir: Path) -> List[str]:
-        """Detects frameworks by inspecting manifest files."""
+        """Detects frameworks by recursively inspecting manifest files."""
         frameworks = set()
 
-        # Flutter & Dart
-        pubspec = workspace_dir / "pubspec.yaml"
-        if pubspec.exists():
-            frameworks.add("Dart")
-            try:
-                content = pubspec.read_text(encoding="utf-8", errors="ignore")
-                if "flutter:" in content or "flutter_test:" in content:
-                    frameworks.add("Flutter")
-                if "provider:" in content:
-                    frameworks.add("Provider (State)")
-                if "bloc:" in content or "flutter_bloc:" in content:
-                    frameworks.add("BLoC")
-                if "riverpod:" in content:
-                    frameworks.add("Riverpod")
-            except Exception:
-                pass
+        for root, dirs, files in os.walk(workspace_dir):
+            dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+            for file in files:
+                fpath = Path(root) / file
+                fname = file.lower()
 
-        # Node / JS
-        pkg_json = workspace_dir / "package.json"
-        if pkg_json.exists():
-            try:
-                content = pkg_json.read_text(encoding="utf-8", errors="ignore")
-                if "next" in content:
-                    frameworks.add("Next.js")
-                if "react" in content:
-                    frameworks.add("React")
-                if "express" in content:
-                    frameworks.add("Express")
-                if "fastify" in content:
-                    frameworks.add("Fastify")
-                if "vue" in content:
-                    frameworks.add("Vue")
-                if "svelte" in content:
-                    frameworks.add("Svelte")
-            except Exception:
-                pass
+                # Flutter & Dart
+                if fname == "pubspec.yaml":
+                    frameworks.add("Dart")
+                    try:
+                        content = fpath.read_text(encoding="utf-8", errors="ignore")
+                        if "flutter:" in content or "flutter_test:" in content:
+                            frameworks.add("Flutter")
+                        if "provider:" in content:
+                            frameworks.add("Provider (State)")
+                        if "bloc:" in content or "flutter_bloc:" in content:
+                            frameworks.add("BLoC")
+                        if "riverpod:" in content:
+                            frameworks.add("Riverpod")
+                    except Exception:
+                        pass
 
-        # Python
-        for fname in ["pyproject.toml", "requirements.txt", "Pipfile", "setup.py"]:
-            p = workspace_dir / fname
-            if p.exists():
-                try:
-                    content = p.read_text(encoding="utf-8", errors="ignore")
-                    if "fastapi" in content:
-                        frameworks.add("FastAPI")
-                    if "django" in content:
-                        frameworks.add("Django")
-                    if "flask" in content:
-                        frameworks.add("Flask")
-                    if "langgraph" in content:
-                        frameworks.add("LangGraph")
-                    if "langchain" in content:
-                        frameworks.add("LangChain")
-                except Exception:
-                    pass
+                # Node / JS
+                elif fname == "package.json":
+                    try:
+                        content = fpath.read_text(encoding="utf-8", errors="ignore")
+                        if "next" in content:
+                            frameworks.add("Next.js")
+                        if "react" in content:
+                            frameworks.add("React")
+                        if "express" in content:
+                            frameworks.add("Express")
+                        if "fastify" in content:
+                            frameworks.add("Fastify")
+                        if "vue" in content:
+                            frameworks.add("Vue")
+                        if "svelte" in content:
+                            frameworks.add("Svelte")
+                    except Exception:
+                        pass
 
-        # Go
-        go_mod = workspace_dir / "go.mod"
-        if go_mod.exists():
-            frameworks.add("Go Modules")
+                # Python
+                elif fname in ["requirements.txt", "pyproject.toml", "pipfile", "setup.py"]:
+                    try:
+                        content = fpath.read_text(encoding="utf-8", errors="ignore").lower()
+                        if "fastapi" in content:
+                            frameworks.add("FastAPI")
+                        if "django" in content:
+                            frameworks.add("Django")
+                        if "flask" in content:
+                            frameworks.add("Flask")
+                        if "sqlalchemy" in content:
+                            frameworks.add("SQLAlchemy")
+                        if "tornado" in content:
+                            frameworks.add("Tornado")
+                        if "langgraph" in content:
+                            frameworks.add("LangGraph")
+                        if "langchain" in content:
+                            frameworks.add("LangChain")
+                    except Exception:
+                        pass
 
-        # Rust
-        cargo = workspace_dir / "Cargo.toml"
-        if cargo.exists():
-            frameworks.add("Cargo / Rust")
+                # Go
+                elif fname == "go.mod":
+                    frameworks.add("Go Modules")
+
+                # Rust
+                elif fname == "cargo.toml":
+                    frameworks.add("Cargo / Rust")
 
         return sorted(list(frameworks))
 
@@ -136,6 +140,10 @@ class AnalysisService:
     def find_entry_points(cls, workspace_dir: Path) -> List[str]:
         """Finds primary application entry points."""
         candidates = [
+            "app/app.py",
+            "app/main.py",
+            "src/main.py",
+            "src/app.py",
             "lib/main.dart",
             "main.dart",
             "main.py",
@@ -144,8 +152,7 @@ class AnalysisService:
             "index.ts",
             "index.js",
             "src/index.ts",
-            "src/main.py",
-            "app/main.py",
+            "src/index.js",
             "cmd/main.go",
             "src/main.rs",
         ]
@@ -261,8 +268,15 @@ class AnalysisService:
 
                     try:
                         content = abs_path.read_text(encoding="utf-8", errors="ignore")
+                        # FastAPI / modern routes: @app.get('/...')
                         for match in re.finditer(r'@(?:app|router)\.(get|post|put|delete|patch)\(["\']([^"\']+)["\']', content):
                             routes.append({"method": match.group(1).upper(), "path": match.group(2), "file": rel_path})
+                        # Flask routes: @app.route('/path', methods=['GET', 'POST'])
+                        for match in re.finditer(r'@app\.route\(["\']([^"\']+)["\'](?:,\s*methods\s*=\s*\[([^\]]+)\])?', content):
+                            route_path = match.group(1)
+                            methods = match.group(2) or "'GET'"
+                            for m in re.findall(r"['\"]([A-Z]+)['\"]", methods):
+                                routes.append({"method": m, "path": route_path, "file": rel_path})
                     except Exception:
                         pass
                 elif ext == ".dart":
