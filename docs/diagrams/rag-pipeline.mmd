@@ -1,0 +1,26 @@
+flowchart LR
+    subgraph Discovery ["File Discovery"]
+        FS["Workspace Files"] --> GitFilter[".gitignore & Size Filter"]
+        GitFilter --> LangDetect["Language & Extension Classifier"]
+    end
+
+    subgraph Chunking ["AST & Syntax Chunking"]
+        LangDetect --> ASTParser["Language AST Parser (Python, TS, Go, Rust)"]
+        ASTParser --> Bounds["Class / Function / Method Boundaries"]
+        Bounds --> MetaAttach["Attach Metadata: Path, Lines, SHA, Hash"]
+    end
+
+    subgraph Vectorization ["Embedding & Storage"]
+        MetaAttach --> CacheCheck{"File Hash Changed?"}
+        CacheCheck -- No --> Skip["Skip Unchanged"]
+        CacheCheck -- Yes --> Embed["Compute Vector Embeddings"]
+        Embed --> ChromaDB[("ChromaDB Persistent Store")]
+    end
+
+    subgraph QueryPipeline ["Query & Retrieval"]
+        Query["Natural Language Query"] --> QueryEmbed["Embed Query"]
+        QueryEmbed --> ChromaDB
+        ChromaDB --> TopK["Top-K Filtered Chunks"]
+        TopK --> ProjectFilter["Project Isolation Filter"]
+        ProjectFilter --> ContextFold["TokenFold Compact Context Window"]
+    end

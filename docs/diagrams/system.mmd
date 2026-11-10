@@ -1,0 +1,45 @@
+graph TD
+    subgraph UI ["User Interfaces"]
+        NextUI["Next.js 15 Web Dashboard"]
+        CLI["codeintel CLI (Typer / Rich)"]
+    end
+
+    subgraph API ["FastAPI Application Gateway"]
+        AuthGate["Auth & Policy Middleware"]
+        Router["/api/v1 REST & SSE Endpoints"]
+        SecSvc["Security & Path Validation"]
+    end
+
+    subgraph Orchestration ["LangGraph Multi-Agent Engine"]
+        Supervisor["Supervisor Agent"]
+        Wave1["Wave 1: Repo, Arch, Sec, Docs"]
+        Wave2["Wave 2: Test & Sandbox Exec"]
+        Wave3["Wave 3: Debug & Patch Gen"]
+        Wave4["Wave 4: Contribution & PR"]
+        ApprovalGate{"Human Approval Gate"}
+    end
+
+    subgraph DataPlane ["Persistence & Sandbox"]
+        SQLite["SQLite / PostgreSQL Database"]
+        Chroma["ChromaDB Vector Store"]
+        Workspaces["Isolated Filesystem Workspaces"]
+        Sandbox["Container / Subprocess Sandbox"]
+    end
+
+    NextUI --> Router
+    CLI --> Router
+    Router --> AuthGate
+    AuthGate --> SecSvc
+    SecSvc --> Supervisor
+
+    Supervisor --> Wave1
+    Wave1 --> Wave2
+    Wave2 --> Wave3
+    Wave3 --> ApprovalGate
+    ApprovalGate -- Approved --> Wave4
+    ApprovalGate -- Rejected --> Supervisor
+
+    Supervisor --> SQLite
+    Wave1 --> Chroma
+    Wave2 --> Sandbox
+    Sandbox --> Workspaces

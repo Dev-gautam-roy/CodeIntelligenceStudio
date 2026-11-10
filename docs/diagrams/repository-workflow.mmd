@@ -1,0 +1,25 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant Dashboard as Web Dashboard / CLI
+    participant API as FastAPI Gateway
+    participant GitHub as GitHub REST API
+    participant WS as Workspace Manager
+    participant RAG as RAG Ingestion Service
+
+    User->>Dashboard: Submit Repo URL (https://github.com/owner/repo)
+    Dashboard->>API: POST /api/v1/github/validate
+    API->>GitHub: GET /repos/{owner}/{repo}
+    GitHub-->>API: 200 OK (Metadata, default branch, permissions)
+    API-->>Dashboard: Validation Success (Public/Private verified)
+
+    User->>Dashboard: Execute "Clone & Ingest"
+    Dashboard->>API: POST /api/v1/repositories/clone
+    API->>WS: Prepare isolated directory (workspaces/{project_id}/{sha})
+    WS->>GitHub: Shallow git clone --depth 1
+    WS-->>API: Clone completed with Head Commit SHA
+    API->>RAG: Trigger Async AST Ingestion
+    RAG->>WS: Read tracked files (.gitignore filtered)
+    RAG->>RAG: AST Chunking & Hash Fingerprinting
+    RAG-->>API: Ingestion Complete (Chunks stored in ChromaDB)
+    API-->>Dashboard: Repository Ready for Multi-Agent Workflows

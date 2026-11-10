@@ -1,0 +1,8 @@
+{
+  "approvalMode": "normal",
+  "localOverrides": {
+    "allowAutoReadWorkspaces": true,
+    "requireExplicitApprovalForPush": true,
+    "requireExplicitApprovalForFork": true
+  }
+}

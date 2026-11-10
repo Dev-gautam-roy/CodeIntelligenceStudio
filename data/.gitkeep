@@ -1,0 +1,2 @@
+# Data Directory
+Directory for SQLite databases (`codeintel.db`) and ChromaDB vector store (`./data/chroma`).

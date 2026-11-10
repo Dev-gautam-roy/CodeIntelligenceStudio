@@ -1,0 +1,17 @@
+{
+  "$schema": "https://superbrain.ai/schemas/policy.json",
+  "approvalMode": "normal",
+  "protectedOperations": [
+    "git.fork",
+    "git.push",
+    "git.commit",
+    "github.pull_request.create",
+    "deployment.production.publish",
+    "filesystem.delete_database",
+    "filesystem.write_outside_workspace",
+    "shell.destructive_command",
+    "secrets.access"
+  ],
+  "enforceWorkspaceIsolation": true,
+  "sandboxRequiredForUntrustedRepos": true
+}

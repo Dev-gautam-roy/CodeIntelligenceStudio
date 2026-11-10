@@ -1,0 +1,32 @@
+graph TB
+    subgraph LocalDev ["Local Development (Windows 11)"]
+        LocalBrowser["User Browser (localhost:3000)"]
+        LocalNext["Next.js 15 Dev Server"]
+        LocalFastAPI["FastAPI (localhost:8000)"]
+        LocalSQLite[("SQLite (codeintel.db)")]
+        LocalChroma[("Local ChromaDB Store")]
+        LocalWS["Local Disk: ./workspaces"]
+
+        LocalBrowser --> LocalNext
+        LocalNext --> LocalFastAPI
+        LocalFastAPI --> LocalSQLite
+        LocalFastAPI --> LocalChroma
+        LocalFastAPI --> LocalWS
+    end
+
+    subgraph CloudProd ["Production Remote Deployment"]
+        CloudUsers["Global Engineers"]
+        Nginx["Nginx Reverse Proxy (TLS / HTTPS)"]
+        ProdNext["Next.js Standalone Container"]
+        ProdAPI["FastAPI Uvicorn Multi-Worker"]
+        Postgres[("Managed PostgreSQL 16")]
+        ProdVector[("Distributed Vector Storage")]
+        WorkerSandboxes["Isolated Sandbox Workers (K8s / Docker)"]
+
+        CloudUsers --> Nginx
+        Nginx --> ProdNext
+        Nginx --> ProdAPI
+        ProdAPI --> Postgres
+        ProdAPI --> ProdVector
+        ProdAPI --> WorkerSandboxes
+    end

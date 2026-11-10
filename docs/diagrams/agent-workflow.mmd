@@ -1,0 +1,31 @@
+flowchart TD
+    Start(["User Request Received"]) --> SupStart["Supervisor: Parse Goal & Decompose Plan"]
+    SupStart --> Wave1Fork{"Parallel Wave 1"}
+
+    Wave1Fork --> AgentRepo["Repository Agent: Detect Stack & Map Trees"]
+    Wave1Fork --> AgentArch["Architecture Agent: Map Imports & Detect Cycles"]
+    Wave1Fork --> AgentSec["Security Agent: Scan Secrets & Injections"]
+    Wave1Fork --> AgentDoc["Documentation Agent: Index & Summarize"]
+
+    AgentRepo --> Wave1Join["Synchronize Wave 1 Results"]
+    AgentArch --> Wave1Join
+    AgentSec --> Wave1Join
+    AgentDoc --> Wave1Join
+
+    Wave1Join --> Wave2["Testing Agent: Discover & Sandbox Run Tests"]
+    Wave2 --> TestDecision{"Tests Passed?"}
+
+    TestDecision -- No --> Wave3["Debugging Agent: Diagnose Stack Trace & Generate Patch"]
+    Wave3 --> RegressTest["Sandbox Regression Test"]
+    RegressTest --> RegressDecision{"Fixed?"}
+    RegressDecision -- Yes --> AppGate{"Approval Gate: Human Review"}
+    RegressDecision -- No --> FailReport["Record Failure & Diagnostic Trajectory"]
+
+    TestDecision -- Yes --> AppGate
+
+    AppGate -- "Approved by User" --> Wave4["Contribution Agent: Staged Branch, Commit & PR"]
+    AppGate -- "Rejected by User" --> AbortReport["Abort Remote Action & Store Patch"]
+
+    Wave4 --> Finish(["Workflow Complete"])
+    FailReport --> Finish
+    AbortReport --> Finish

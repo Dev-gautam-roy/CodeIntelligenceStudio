@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant Studio as Code Intelligence Studio
+    participant GitHub as GitHub API
+    participant Remote as Upstream / Fork
+
+    User->>Studio: Select "Prepare Contribution"
+    Studio->>GitHub: GET /repos/{owner}/{repo}/forks
+    alt No Fork Exists
+        Studio->>User: Request Approval to Fork
+        User->>Studio: Approve Fork
+        Studio->>GitHub: POST /repos/{owner}/{repo}/forks
+        GitHub-->>Studio: Fork created (https://github.com/user/repo)
+    end
+
+    Studio->>Studio: Create isolated branch: fix/codeintel-{task_id}
+    Studio->>Studio: Apply Synthesized Patch
+    Studio->>Studio: Execute Regression Test in Sandbox
+    Studio-->>User: Present Complete Git Diff & Test Results
+    User->>Studio: Review & Click "Approve Push & PR"
+
+    Studio->>Remote: git push origin fix/codeintel-{task_id}
+    Studio->>GitHub: POST /repos/{owner}/{repo}/pulls
+    GitHub-->>Studio: 201 Created (PR #42 URL)
+    Studio-->>User: Contribution Live (https://github.com/owner/repo/pull/42)
