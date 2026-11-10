@@ -2,9 +2,13 @@
 
 import React from "react";
 import { Terminal, Shield, CheckCircle, AlertTriangle, GitFork } from "lucide-react";
+import { Repository } from "../../types";
 
 interface HeaderProps {
   activeRepoUrl?: string;
+  repositories?: Repository[];
+  activeRepo?: Repository | null;
+  onSelectRepo?: (repo: Repository) => void;
   pendingApprovalsCount: number;
   onOpenApprovals: () => void;
   isBackendConnected: boolean;
@@ -12,6 +16,9 @@ interface HeaderProps {
 
 export function Header({
   activeRepoUrl,
+  repositories = [],
+  activeRepo,
+  onSelectRepo,
   pendingApprovalsCount,
   onOpenApprovals,
   isBackendConnected,
@@ -34,12 +41,29 @@ export function Header({
       </div>
 
       <div className="flex items-center space-x-4 text-xs">
-        {/* Active Repository */}
+        {/* Active Repository Selector */}
         <div className="hidden md:flex items-center space-x-2 bg-surface-2 px-3 py-1 rounded border border-border-default">
-          <GitFork className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-slate-300 font-mono">
-            {activeRepoUrl || "No Active Repository"}
-          </span>
+          <GitFork className="w-3.5 h-3.5 text-blue-400" />
+          {repositories.length > 0 && onSelectRepo ? (
+            <select
+              value={activeRepo?.id || ""}
+              onChange={(e) => {
+                const found = repositories.find((r) => r.id === e.target.value);
+                if (found) onSelectRepo(found);
+              }}
+              className="bg-transparent text-slate-200 font-mono text-xs focus:outline-none cursor-pointer max-w-[280px] truncate"
+            >
+              {repositories.map((r) => (
+                <option key={r.id} value={r.id} className="bg-surface-2 text-slate-200">
+                  {r.owner}/{r.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-slate-300 font-mono">
+              {activeRepoUrl || "No Active Repository"}
+            </span>
+          )}
         </div>
 
         {/* Backend Connectivity Status */}

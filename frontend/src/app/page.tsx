@@ -14,11 +14,13 @@ import { api } from "../services/api";
 import {
   Repository,
   ArchitectureAnalysis,
+  SecurityAnalysis,
   AgentInfo,
   Workflow,
   Task,
   Approval,
 } from "../types";
+import { ShieldAlert, AlertTriangle, CheckCircle, FileCode } from "lucide-react";
 
 export default function DashboardPage() {
   const [currentTab, setCurrentTab] = useState<NavTab>("overview");
@@ -29,14 +31,25 @@ export default function DashboardPage() {
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [activeRepo, setActiveRepo] = useState<Repository | null>(null);
   const [architectureData, setArchitectureData] = useState<ArchitectureAnalysis | null>(null);
+  const [securityData, setSecurityData] = useState<SecurityAnalysis | null>(null);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
 
+  const selectRepository = (repo: Repository) => {
+    setActiveRepo(repo);
+    api.getArchitecture(repo.id)
+      .then(setArchitectureData)
+      .catch(() => null);
+    api.getSecurityAudit(repo.id)
+      .then(setSecurityData)
+      .catch(() => null);
+  };
+
   // Initial Data Fetch
-  const loadData = async () => {
+  const loadData = async (newRepo?: Repository) => {
     try {
       await api.checkHealth();
       setIsBackendConnected(true);
@@ -59,11 +72,15 @@ export default function DashboardPage() {
       setTasks(tasksList);
       setApprovals(appsList);
 
-      if (reposList.length > 0 && !activeRepo) {
-        setActiveRepo(reposList[0]);
-        // Load architecture analysis
-        api.getArchitecture(reposList[0].id)
+      const targetRepo = newRepo || activeRepo || (reposList.length > 0 ? reposList[0] : null);
+      if (targetRepo) {
+        if (!activeRepo || newRepo) setActiveRepo(targetRepo);
+        // Load architecture and security
+        api.getArchitecture(targetRepo.id)
           .then(setArchitectureData)
+          .catch(() => null);
+        api.getSecurityAudit(targetRepo.id)
+          .then(setSecurityData)
           .catch(() => null);
       }
     } catch (e) {
@@ -94,6 +111,9 @@ export default function DashboardPage() {
       {/* Top Application Header */}
       <Header
         activeRepoUrl={activeRepo?.url}
+        repositories={repositories}
+        activeRepo={activeRepo}
+        onSelectRepo={selectRepository}
         pendingApprovalsCount={approvals.length}
         onOpenApprovals={() => setIsApprovalModalOpen(true)}
         isBackendConnected={isBackendConnected}
@@ -111,8 +131,11 @@ export default function DashboardPage() {
         <main className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Unified Repository Action Bar */}
           <RepositoryActionBar
-            onActionComplete={loadData}
+            onActionComplete={(repo) => loadData(repo)}
             onSetStatus={setStatusMessage}
+            repositories={repositories}
+            activeRepo={activeRepo}
+            onSelectRepo={selectRepository}
           />
 
           {/* Telemetry Metrics Grid */}
@@ -122,7 +145,7 @@ export default function DashboardPage() {
             agentsRunning={tasks.filter((t) => t.status === "RUNNING").length}
             completedTasks={tasks.filter((t) => t.status === "COMPLETED").length}
             failedTasks={tasks.filter((t) => t.status === "FAILED").length}
-            securityFindings={0}
+            securityFindings={securityData ? securityData.findings_count : 0}
             tokenUsage={tasks.reduce((sum, t) => sum + t.token_usage, 0)}
           />
 
@@ -133,8 +156,101 @@ export default function DashboardPage() {
                 <ArchitectureGraph data={architectureData} />
                 <WorkflowGraph tasks={tasks} />
               </div>
+
+              {/* Prominent Security Alert if Findings Exist */}
+              {securityData && securityData.findings_count > 0 && (
+                <div className="bg-surface-1 border border-red-500/40 rounded-lg p-4 space-y-3 shadow-lg shadow-red-500/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-red-400 font-semibold text-xs">
+                      <ShieldAlert className="w-4 h-4" />
+                      <span>Security Vulnerabilities Detected ({securityData.findings_count})</span>
+                    </div>
+                    <button
+                      onClick={() => setCurrentTab("security")}
+                      className="text-xs text-blue-400 hover:underline font-mono"
+                    >
+                      View all findings & remediation &rarr;
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    {securityData.findings.slice(0, 4).map((f, i) => (
+                      <div key={i} className="p-2.5 rounded bg-surface-2 border border-border-default space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-red-400 font-mono text-[10px]">{f.type}</span>
+                          <span className="px-1.5 py-0.2 rounded bg-red-500/20 text-red-300 text-[9px] font-bold">
+                            {f.severity}
+                          </span>
+                        </div>
+                        <p className="text-slate-300 font-mono text-[11px] truncate">{f.snippet}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <AgentCardRail agents={agents} tasks={tasks} />
               <InteractiveTerminal activeRepositoryId={activeRepo?.id} />
+            </div>
+          )}
+
+          {currentTab === "security" && (
+            <div className="space-y-4">
+              <div className="bg-surface-1 border border-border-default rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-red-400" />
+                      Security & Vulnerability Audit Report
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Scanned repository: <span className="font-mono text-slate-200">{activeRepo?.url}</span>
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded bg-surface-2 border border-border-default font-mono text-xs text-slate-300">
+                    Scan Time: {securityData?.scan_duration_ms || 0}ms
+                  </span>
+                </div>
+
+                {!securityData || securityData.findings_count === 0 ? (
+                  <div className="py-12 text-center text-xs text-emerald-400 flex flex-col items-center gap-2">
+                    <CheckCircle className="w-8 h-8 text-emerald-500" />
+                    <span className="font-semibold text-sm">No security flaws detected!</span>
+                    <span className="text-slate-400">Zero leaked credentials, prompt injections, or unsafe patterns found.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {securityData.findings.map((f, i) => (
+                      <div
+                        key={i}
+                        className="p-3 rounded bg-surface-2 border border-border-default space-y-2 text-xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 font-mono text-[10px] font-bold">
+                              {f.severity}
+                            </span>
+                            <span className="font-semibold text-slate-200 font-mono">{f.type}</span>
+                            <span className="text-slate-400 font-mono text-[11px] flex items-center gap-1">
+                              <FileCode className="w-3 h-3" />
+                              {f.file_path}:{f.line_number}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">OWASP Top 10</span>
+                        </div>
+
+                        <div className="bg-root p-2 rounded font-mono text-[11px] text-red-300 border border-red-500/20">
+                          {f.snippet}
+                        </div>
+
+                        <p className="text-slate-300">{f.description}</p>
+                        <p className="text-[11px] text-emerald-400 font-mono">
+                          <span className="font-bold">Remediation:</span> {f.recommendation}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

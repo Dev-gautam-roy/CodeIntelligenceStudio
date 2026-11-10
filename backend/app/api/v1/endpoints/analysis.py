@@ -57,9 +57,18 @@ def scan_security(request: AnalysisRequest, db: Session = Depends(get_db)):
                 "recommendation": "Sanitize untrusted README inputs before passing to LLM context.",
             })
 
-    # Scan code for secrets
+    # Scan code for secrets and vulnerabilities across all supported languages
+    code_extensions = {
+        ".py", ".ts", ".js", ".jsx", ".tsx", ".dart", ".yaml", ".yml",
+        ".json", ".env", ".html", ".sql", ".sh", ".java", ".kt", ".swift",
+        ".go", ".rs", ".cpp", ".c", ".h"
+    }
+    ignore_dirs = {".git", "node_modules", ".venv", "__pycache__", ".dart_tool", "build", "dist"}
+
     for p in ws_path.glob("**/*"):
-        if p.is_file() and p.suffix in [".py", ".ts", ".js", ".json", ".env"]:
+        if any(ignored in p.parts for ignored in ignore_dirs):
+            continue
+        if p.is_file() and p.suffix.lower() in code_extensions:
             try:
                 content = p.read_text(encoding="utf-8", errors="ignore")
                 rel = str(p.relative_to(ws_path))
