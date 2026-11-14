@@ -21,12 +21,13 @@ export function RepositoryActionBar({
   onSelectRepo,
 }: RepositoryActionBarProps) {
   const [repoUrl, setRepoUrl] = useState(activeRepo?.url || "https://github.com/we45/Vulnerable-Flask-App");
-  const [selectedAction, setSelectedAction] = useState("Security Audit");
+  const [selectedAction, setSelectedAction] = useState("Run Full LangGraph Pipeline");
   const [isLoading, setIsLoading] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
 
   const actions = [
+    "Run Full LangGraph Pipeline",
     "Security Audit",
     "Analyse",
     "Clone",
@@ -46,7 +47,11 @@ export function RepositoryActionBar({
 
     try {
       let targetRepo: Repository | null = null;
-      if (selectedAction === "Clone") {
+      if (selectedAction === "Run Full LangGraph Pipeline") {
+        targetRepo = await api.cloneRepository(repoUrl);
+        const wf = await api.createWorkflow(targetRepo.project_id, "LangGraph Multi-Wave Autonomous Pipeline", repoUrl);
+        setResultMessage(`LangGraph Pipeline #${wf.id.slice(0, 8)} running! Watch nodes update live in the DAG.`);
+      } else if (selectedAction === "Clone") {
         targetRepo = await api.cloneRepository(repoUrl);
         setResultMessage(`Successfully cloned into workspace: ${targetRepo.clone_path}`);
       } else if (selectedAction === "Fork") {
