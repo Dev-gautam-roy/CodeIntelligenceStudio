@@ -10,6 +10,8 @@ import { WorkflowGraph } from "../components/workflows/WorkflowGraph";
 import { AgentCardRail } from "../components/agents/AgentCardRail";
 import { InteractiveTerminal } from "../components/terminal/InteractiveTerminal";
 import { ApprovalModal } from "../components/approvals/ApprovalModal";
+import { CodeExplorer } from "../components/explorer/CodeExplorer";
+import { CodebaseChat } from "../components/chat/CodebaseChat";
 import { api } from "../services/api";
 import {
   Repository,
@@ -20,7 +22,7 @@ import {
   Task,
   Approval,
 } from "../types";
-import { ShieldAlert, AlertTriangle, CheckCircle, FileCode } from "lucide-react";
+import { ShieldAlert, AlertTriangle, CheckCircle, FileCode, MessageSquareCode, FolderGit2 } from "lucide-react";
 
 export default function DashboardPage() {
   const [currentTab, setCurrentTab] = useState<NavTab>("overview");
@@ -37,6 +39,12 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [explorerFilePath, setExplorerFilePath] = useState<string | undefined>(undefined);
+
+  const handleNavigateToFile = (path: string) => {
+    setExplorerFilePath(path);
+    setCurrentTab("explorer");
+  };
 
   const selectRepository = (repo: Repository) => {
     setActiveRepo(repo);
@@ -192,9 +200,66 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              {/* Quick Navigation Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div
+                  onClick={() => setCurrentTab("chat")}
+                  className="bg-surface-1 border border-border-default hover:border-purple-500/50 rounded-lg p-3.5 flex items-center justify-between cursor-pointer transition-all shadow-sm group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded bg-purple-500/20 text-purple-300 flex items-center justify-center">
+                      <MessageSquareCode className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-slate-200 group-hover:text-purple-300 transition-colors">
+                        Converse with Codebase
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Ask questions, find implementations & explore logic with local RAG
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-purple-400 font-mono group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+
+                <div
+                  onClick={() => setCurrentTab("explorer")}
+                  className="bg-surface-1 border border-border-default hover:border-blue-500/50 rounded-lg p-3.5 flex items-center justify-between cursor-pointer transition-all shadow-sm group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded bg-blue-500/20 text-blue-300 flex items-center justify-center">
+                      <FolderGit2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-slate-200 group-hover:text-blue-300 transition-colors">
+                        Code Explorer & Viewer
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Browse repository file tree, preview source code with syntax highlighting
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs text-blue-400 font-mono group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+              </div>
+
               <AgentCardRail agents={agents} tasks={tasks} />
               <InteractiveTerminal activeRepositoryId={activeRepo?.id} />
             </div>
+          )}
+
+          {currentTab === "chat" && (
+            <CodebaseChat
+              activeRepo={activeRepo}
+              onNavigateToFile={handleNavigateToFile}
+            />
+          )}
+
+          {currentTab === "explorer" && (
+            <CodeExplorer
+              activeRepo={activeRepo}
+              initialPath={explorerFilePath}
+            />
           )}
 
           {currentTab === "security" && (

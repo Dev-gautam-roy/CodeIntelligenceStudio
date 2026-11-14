@@ -85,3 +85,43 @@ export interface Approval {
   decided_at?: string;
   created_at: string;
 }
+
+export interface FileTreeNode {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size?: number;
+  extension?: string;
+  children?: FileTreeNode[];
+}
+
+export interface FileContentResponse {
+  path: string;
+  content: string;
+  language: string;
+  lines_count: number;
+  size_bytes: number;
+}
+
+export interface CodeReference {
+  file_path: string;
+  start_line: number;
+  end_line: number;
+  language: string;
+  snippet: string;
+}
+
+export interface ChatResponse {
+  reply: string;
+  references: CodeReference[];
+  model_used: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: "user" | "assistant";
+  text: string;
+  references?: CodeReference[];
+  model?: string;
+  timestamp: string;
+}

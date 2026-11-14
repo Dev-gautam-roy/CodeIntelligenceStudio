@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     approvals,
     memory,
     deployments,
+    codebase,
 )
 
 api_router = APIRouter()
@@ -19,6 +20,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(github.router, prefix="/github", tags=["github"])
 api_router.include_router(repositories.router, prefix="/repositories", tags=["repositories"])
+api_router.include_router(codebase.router, prefix="/repositories", tags=["codebase"])
 api_router.include_router(analysis.router, prefix="/analysis", tags=["analysis"])
 api_router.include_router(agents.router, prefix="/agents", tags=["agents"])
 api_router.include_router(workflows.router, prefix="/workflows", tags=["workflows"])

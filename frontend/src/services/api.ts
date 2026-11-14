@@ -6,6 +6,9 @@ import {
   Workflow,
   Task,
   Approval,
+  FileTreeNode,
+  FileContentResponse,
+  ChatResponse,
 } from "../types";
 
 const API_BASE = "/api/v1";
@@ -107,6 +110,21 @@ export const api = {
 
   rejectAction: (id: string) =>
     fetchJSON<Approval>(`${API_BASE}/approvals/${id}/reject`, { method: "POST" }),
+
+  // Codebase File Explorer & Chat
+  getFileTree: (repoId: string) =>
+    fetchJSON<FileTreeNode[]>(`${API_BASE}/repositories/${repoId}/file-tree`),
+
+  getFileContent: (repoId: string, path: string) =>
+    fetchJSON<FileContentResponse>(
+      `${API_BASE}/repositories/${repoId}/file-content?path=${encodeURIComponent(path)}`
+    ),
+
+  chatWithCodebase: (repoId: string, message: string, history: any[] = []) =>
+    fetchJSON<ChatResponse>(`${API_BASE}/repositories/${repoId}/chat`, {
+      method: "POST",
+      body: JSON.stringify({ message, history }),
+    }),
 
   // Terminal
   executeTerminalCommand: (repository_id: string, command: string) =>
