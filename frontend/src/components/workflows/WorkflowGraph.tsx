@@ -223,7 +223,7 @@ export function WorkflowGraph({ tasks, activeRepo, onRefresh }: WorkflowGraphPro
       <div className="flex-1 w-full relative">
         <ReactFlow nodes={nodes} edges={edges} fitView className="bg-root">
           <Background color="#1E293B" gap={16} />
-          <Controls className="bg-surface-2 border border-border-default text-white" />
+          <Controls showInteractive={false} className="bg-surface-1 border border-border-default text-white" />
         </ReactFlow>
       </div>
     </div>
